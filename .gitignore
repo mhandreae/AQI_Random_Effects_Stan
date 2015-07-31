@@ -3,3 +3,4 @@
 .RData
 AQI_Random_Effects_Stan.Rproj
 *.Rdata
+*.pdf
