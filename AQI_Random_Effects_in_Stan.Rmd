@@ -5,38 +5,67 @@ date: "July, 2015"
 output: pdf_document
 ---
 
-
-```{r}
+```{r, packages, message=FALSE, echo=FALSE, warning=FALSE}
+library(knitr) # required to set options in Markdown R
+library(dplyr)
 library(rstan)
-setwd("C:/Users/Micheal/Dropbox/Professional/AQI/AQI_Random_Effects_in_Stan")
-fit <- stan(file="AQI_model_31Jul15.stan", model_name="AQI_two_random_effects_31Jul15", iter=20, chains=2)
-save(fit, file="AQI_two_random_effects_31Jul15.Rdata")
-dir()
+# library(lme4)
+# library(nlme)
 ```
 
-```{r}
-require(dplyr)
-rm(list=ls())
-# load clean AQI datafile
-load("C:/Users/Michael Andreae/Dropbox/Professional/AQI/AQI_4_2014.Rdata")
 
+```{r, global_options, echo=FALSE}
+
+# set the directory to the project directory
+setwd("C:/Users/Micheal/Dropbox/Professional/AQI/AQI_Random_Effects_Stan")
+
+# set options
+opts_chunk$set(fig.width=6, fig.height=4, fig.path='Figs/',
+               echo=FALSE, warning=FALSE, message=FALSE)
+```
+  
+  
+```{r showall, eval=TRUE, echo=FALSE}
+rm(list=ls())
+showall <- TRUE
+```
+
+```{r loadAQI_data, echo=showall}
+### Load AQI Data
+load("Analysis/Data/prov1_AQI_4_14.Rdata")
+```
+
+```{r, echo=showall, eval=FALSE}
+# Fit stan model
+fit <- stan(file="AQI_model_31Jul15.stan",
+            model_name="AQI_two_random_effects_31Jul15", 
+            iter=20, chains=2)
+save(fit, file="Analysis/Data/AQI_two_random_effects_31Jul15model.Rdata")
+```
+
+```{r show_structure_AQI, eval=showall, echo=showall}
+# Show data structure of AQI data with provider information
+str(prov1_AQI_4_14)
+```
+
+```{r make_stan_data, eval=TRUE, echo=showall}
 # convert the data to fit the stan model file,
-## Filter the data containing insurance data using dplyr: filter( AQI_4_2014, !is.na(insurance),
 ## x is generated as model matrix for insurance dummies,
 ## then add gender as a linear predictor the x matrix,
 
 
-standata <- with(filter(AQI_4_2014, (!is.na(insurance) & patient_age_group != -1)), 
-                 list(nOb = length(caseid), 
-                      nGrp1 = length(unique(facilityid)), 
-                      nGrp2 = length(unique(patient_age_group)), 
-                      nX = nlevels(insurance) +1, # add 1 for predictor gender
-                      y = as.integer(zofran), 
-                      x = cbind(model.matrix(~insurance-1),patient_sex), 
+
+standata <- with( ( prov1_AQI_4_14), 
+                 list(nOb = dim(prov1_AQI_4_14)[1], 
+                      nGrp1 = length(unique(provider)), 
+                      nGrp2 = length(unique(practice)), 
+                      nX = nlevels(pay) +1, # add 1 for predictor gender
+                      y = as.integer(ond)-1, # to convert factor [1,2] to int[0,1] 
+                      x = cbind( model.matrix(~pay-1),sex), 
                       # predictor gender added to model matrix
                       
-                      g = as.integer(as.factor(facilityid)),                      
-                      d = as.integer(as.factor(patient_age_group)),
+                      g = as.integer(provider),                      
+                      d = as.integer(practice),
 
                       alpha_loc = 0,
                       beta_loc = 0, 
@@ -49,24 +78,25 @@ standata <- with(filter(AQI_4_2014, (!is.na(insurance) & patient_age_group != -1
                       alpha_scale =10,
                       beta_scale = 10, 
                       sigma_gamma_scale = 5, 
-                      sigma_delta_scale = 5 ))
+                      sigma_delta_scale = 5)
+                  )
 
-save(standata, file="standata29May2015_anest_typ_random.Rdata")
+save(standata, file="Analysis/Data/standata31Jul2015.Rdata")
 
+```
+
+```{r try_model,eval=TRUE, echo=showall}
+# Try standata with the model
+load("Analysis/Data/AQI_two_random_effects_31Jul15model.Rdata")
+AQIfit <- stan(fit=fit, data=standata, iter=20, chains=2)
 ```
 
 ```{r}
-require(rstan)
-rm(list=ls())
-load("AQI_two_random_effects_29May15.Rdata")
-load("standata29May2015_anest_typ_random.Rdata")
-AQIfit <- stan(fit=fit, data=standata, iter=20, chains=2)
 
-require(shinyStan)
-# launch_shinystan(fit)
+library(shinyStan)
+# launch_shinystan(AQIfit)
 ```
 
-The model compiled but we need to run it on Yeti to see the results.
 
 
 
