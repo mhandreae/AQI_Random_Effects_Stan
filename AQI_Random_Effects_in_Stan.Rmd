@@ -1,0 +1,72 @@
+---
+title: "AQI Random Effects in Stan"
+author: "Michael Andreae"
+date: "July, 2015"
+output: pdf_document
+---
+
+
+```{r}
+library(rstan)
+setwd("C:/Users/Micheal/Dropbox/Professional/AQI/AQI_Random_Effects_in_Stan")
+fit <- stan(file="AQI_model_31Jul15.stan", model_name="AQI_two_random_effects_31Jul15", iter=20, chains=2)
+save(fit, file="AQI_two_random_effects_31Jul15.Rdata")
+dir()
+```
+
+```{r}
+require(dplyr)
+rm(list=ls())
+# load clean AQI datafile
+load("C:/Users/Michael Andreae/Dropbox/Professional/AQI/AQI_4_2014.Rdata")
+
+# convert the data to fit the stan model file,
+## Filter the data containing insurance data using dplyr: filter( AQI_4_2014, !is.na(insurance),
+## x is generated as model matrix for insurance dummies,
+## then add gender as a linear predictor the x matrix,
+
+
+standata <- with(filter(AQI_4_2014, (!is.na(insurance) & patient_age_group != -1)), 
+                 list(nOb = length(caseid), 
+                      nGrp1 = length(unique(facilityid)), 
+                      nGrp2 = length(unique(patient_age_group)), 
+                      nX = nlevels(insurance) +1, # add 1 for predictor gender
+                      y = as.integer(zofran), 
+                      x = cbind(model.matrix(~insurance-1),patient_sex), 
+                      # predictor gender added to model matrix
+                      
+                      g = as.integer(as.factor(facilityid)),                      
+                      d = as.integer(as.factor(patient_age_group)),
+
+                      alpha_loc = 0,
+                      beta_loc = 0, 
+                      sigma_gamma_loc = 0,                       
+                      sigma_delta_loc = 0, 
+
+                      gamma_loc = 0,                       
+                      delta_loc = 0,
+
+                      alpha_scale =10,
+                      beta_scale = 10, 
+                      sigma_gamma_scale = 5, 
+                      sigma_delta_scale = 5 ))
+
+save(standata, file="standata29May2015_anest_typ_random.Rdata")
+
+```
+
+```{r}
+require(rstan)
+rm(list=ls())
+load("AQI_two_random_effects_29May15.Rdata")
+load("standata29May2015_anest_typ_random.Rdata")
+AQIfit <- stan(fit=fit, data=standata, iter=20, chains=2)
+
+require(shinyStan)
+# launch_shinystan(fit)
+```
+
+The model compiled but we need to run it on Yeti to see the results.
+
+
+
